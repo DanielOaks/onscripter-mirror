@@ -587,7 +587,7 @@ int ONScripterLabel::selectCommand()
 
     if ( event_mode & WAIT_BUTTON_MODE ){
         
-        if ( current_button_state.button == 0 ) return RET_WAIT | RET_REREAD;
+        if ( current_button_state.button <= 0 ) return RET_WAIT | RET_REREAD;
         
         if ( selectvoice_file_name[SELECTVOICE_SELECT] )
             playWave( selectvoice_file_name[SELECTVOICE_SELECT], false, MIX_WAVE_CHANNEL );
@@ -1068,7 +1068,7 @@ int ONScripterLabel::ofscpyCommand()
         texture_buffer_size = screen_width*screen_height*4;
         texture_buffer = new unsigned char[texture_buffer_size];
     }
-    glReadPixels(0, 0, screen_width, screen_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_buffer);
+    glReadPixels(0, 0, screen_width, screen_height, GL_BGRA, GL_UNSIGNED_BYTE, texture_buffer);
     
     SDL_LockSurface(accumulation_surface);
     for (int i=0 ; i<screen_height ; i++)
@@ -1714,7 +1714,7 @@ int ONScripterLabel::getscreenshotCommand()
         texture_buffer_size = screen_width*screen_height*4;
         texture_buffer = new unsigned char[texture_buffer_size];
     }
-    glReadPixels(0, 0, screen_width, screen_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_buffer);
+    glReadPixels(0, 0, screen_width, screen_height, GL_BGRA, GL_UNSIGNED_BYTE, texture_buffer);
     
     SDL_LockSurface(effect_dst_surface);
     for (int i=0 ; i<screen_height ; i++)
