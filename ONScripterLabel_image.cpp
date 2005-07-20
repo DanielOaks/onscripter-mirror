@@ -554,9 +554,9 @@ void ONScripterLabel::refreshOpenGL(int refresh_mode, SDL_Rect *rect)
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if (refresh_mode == REFRESH_NONE_MODE) // only called from drawChar
+    if (refresh_mode == REFRESH_OPENGL_MODE) // only called from drawChar
         refresh_mode = refreshMode();
-    refreshSurface( accumulation_surface, NULL, refresh_mode|REFRESH_OPENGL_MODE);
+    refreshSurface( accumulation_surface, NULL, refresh_mode );
 
     glPopMatrix();
     SDL_GL_SwapBuffers();

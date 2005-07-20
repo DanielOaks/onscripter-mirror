@@ -264,6 +264,7 @@ int ONScripterLabel::loadSaveFile2( FILE *fp, int file_version )
     loadInt( fp, &erase_text_window_mode );
     loadInt( fp, &i ); // 1
 
+    barclearCommand();
     for ( i=0 ; i<MAX_PARAM_NUM ; i++ ){
         loadInt( fp, &j );
         if ( j != 0 ){
@@ -293,6 +294,7 @@ int ONScripterLabel::loadSaveFile2( FILE *fp, int file_version )
         }
     }
 
+    prnumclearCommand();
     for ( i=0 ; i<MAX_PARAM_NUM ; i++ ){
         loadInt( fp, &j );
         if ( prnum_info[i] ){

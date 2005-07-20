@@ -69,13 +69,12 @@ int ONScripterLabel::doEffect( int effect_no, AnimationInfo *anim, int effect_im
           case BG_EFFECT_IMAGE:
           case TACHI_EFFECT_IMAGE:
             if (effect_no == 1){
-                copyTexture(effect_dst_id);
                 refreshSurface( effect_dst_surface, &dirty_rect.bounding_box, refreshMode() );
-                loadSubTexture( effect_dst_surface, effect_dst_id, &dirty_rect.bounding_box );
+                copyTexture(effect_dst_id);
             }
             else{
                 refreshSurface( effect_dst_surface, NULL, refreshMode() );
-                loadSubTexture( effect_dst_surface, effect_dst_id );
+                copyTexture(effect_dst_id);
             }
             break;
         }

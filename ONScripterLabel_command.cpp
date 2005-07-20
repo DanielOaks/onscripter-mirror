@@ -153,8 +153,8 @@ int ONScripterLabel::textonCommand()
     text_on_flag = true;
     if ( !(display_mode & TEXT_DISPLAY_MODE) ){
         dirty_rect.fill( screen_width, screen_height );
-        flush(refresh_shadow_text_mode);
         display_mode = next_display_mode = TEXT_DISPLAY_MODE;
+        flush(refreshMode());
     }
 
     return RET_CONTINUE;
@@ -165,8 +165,8 @@ int ONScripterLabel::textoffCommand()
     text_on_flag = false;
     if ( display_mode & TEXT_DISPLAY_MODE ){
         dirty_rect.fill( screen_width, screen_height );
-        flush(REFRESH_NORMAL_MODE);
         display_mode = next_display_mode = NORMAL_DISPLAY_MODE;
+        flush(refreshMode());
     }
 
     return RET_CONTINUE;
@@ -1053,22 +1053,10 @@ int ONScripterLabel::playCommand()
     return RET_CONTINUE;
 }
 
-int ONScripterLabel::ofscpyCommand()
+int ONScripterLabel::ofscopyCommand()
 {
 #ifdef USE_OPENGL
-    if (texture_buffer_size < screen_width*screen_height*4){
-        if (texture_buffer) delete[] texture_buffer;
-        texture_buffer_size = screen_width*screen_height*4;
-        texture_buffer = new unsigned char[texture_buffer_size];
-    }
-    glReadPixels(0, 0, screen_width, screen_height, GL_BGRA, GL_UNSIGNED_BYTE, texture_buffer);
-    
-    SDL_LockSurface(accumulation_surface);
-    for (int i=0 ; i<screen_height ; i++)
-        memcpy( (Uint32*)accumulation_surface->pixels + i*screen_width,
-                texture_buffer + (screen_height - 1 - i)*screen_width*4,
-                screen_width * 4);
-    SDL_UnlockSurface(accumulation_surface);
+    copyTexture(accumulation_id);
 #else    
     SDL_BlitSurface( screen_surface, NULL, accumulation_surface, NULL );
 #endif    
@@ -1705,6 +1693,18 @@ int ONScripterLabel::gettabCommand()
 {
     gettab_flag = true;
     
+    return RET_CONTINUE;
+}
+
+int ONScripterLabel::getspsizeCommand()
+{
+    int no = script_h.readInt();
+
+    script_h.readVariable();
+    script_h.setInt( &script_h.current_variable, sprite_info[no].pos.w );
+    script_h.readVariable();
+    script_h.setInt( &script_h.current_variable, sprite_info[no].pos.h );
+
     return RET_CONTINUE;
 }
 
@@ -2966,6 +2966,35 @@ int ONScripterLabel::bltCommand()
         flushDirect( (SDL_Rect&)dst_rect, REFRESH_NONE_MODE );
     }
 #endif    
+    return RET_CONTINUE;
+}
+
+int ONScripterLabel::bgcopyCommand()
+{
+#ifdef USE_OPENGL
+    if (bg_info.image_surface == NULL ||
+        bg_info.pos.w != screen_width || 
+        bg_info.pos.h != screen_height){
+        bg_effect_image = BG_EFFECT_IMAGE;
+
+        bg_info.pos.x = 0;
+        bg_info.pos.y = 0;
+        bg_info.num_of_cells = 1;
+        bg_info.trans_mode = AnimationInfo::TRANS_COPY;
+        setupAnimationInfo(&bg_info, NULL, accumulation_surface);
+    }
+    copyTexture(bg_info.tex_id);
+#else    
+    SDL_BlitSurface( screen_surface, NULL, accumulation_surface, NULL );
+    bg_effect_image = BG_EFFECT_IMAGE;
+
+    bg_info.pos.x = 0;
+    bg_info.pos.y = 0;
+    bg_info.num_of_cells = 1;
+    bg_info.trans_mode = AnimationInfo::TRANS_COPY;
+    setupAnimationInfo(&bg_info, NULL, accumulation_surface);
+#endif    
+
     return RET_CONTINUE;
 }
 

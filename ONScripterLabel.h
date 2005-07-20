@@ -162,7 +162,7 @@ public:
     int playstopCommand();
     int playonceCommand();
     int playCommand();
-    int ofscpyCommand();
+    int ofscopyCommand();
     int negaCommand();
     int mspCommand();
     int mpegplayCommand();
@@ -197,6 +197,7 @@ public:
     int gettextCommand();
     int gettagCommand();
     int gettabCommand();
+    int getspsizeCommand();
     int getscreenshotCommand();
     int getretCommand();
     int getregCommand();
@@ -248,6 +249,7 @@ public:
     int btnCommand();
     int brCommand();
     int bltCommand();
+    int bgcopyCommand();
     int bgCommand();
     int barclearCommand();
     int barCommand();
@@ -658,7 +660,7 @@ private:
     int  proceedAnimation();
     int  estimateNextDuration( AnimationInfo *anim, SDL_Rect &rect, int minimum );
     void resetRemainingTime( int t );
-    void setupAnimationInfo( AnimationInfo *anim, FontInfo *info=NULL, SDL_Surface *surface=NULL );
+    void setupAnimationInfo( AnimationInfo *anim, FontInfo *info=NULL, SDL_Surface *surface_org=NULL );
     void parseTaggedString( AnimationInfo *anim );
     void drawTaggedSurface( SDL_Surface *dst_surface, AnimationInfo *anim, SDL_Rect *clip, int refresh_mode );
     void stopAnimation( int click );
