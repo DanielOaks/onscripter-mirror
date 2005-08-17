@@ -307,8 +307,7 @@ private:
     typedef enum { COLOR_EFFECT_IMAGE  = 0,
                    DIRECT_EFFECT_IMAGE = 1,
                    BG_EFFECT_IMAGE     = 2,
-                   TACHI_EFFECT_IMAGE  = 3,
-                   COPY_EFFECT_IMAGE  = 4
+                   TACHI_EFFECT_IMAGE  = 3
     } EFFECT_IMAGE;
     enum { ALPHA_BLEND_NORMAL         = 0,
            ALPHA_BLEND_CONST          = 1,
@@ -730,6 +729,7 @@ private:
     void refreshOpenGL( int refresh_mode, SDL_Rect *rect );
     void loadTexture( SDL_Surface *surface, unsigned int tex_id );
     void loadSubTexture( SDL_Surface *surface, unsigned int tex_id, SDL_Rect *rect=NULL );
+    void saveTexture( SDL_Surface *surface );
     void drawTexture( unsigned int tex_id, Rect &draw_rect, Rect &tex_rect, int alpha=256, AnimationInfo *anim=NULL );
     void refreshTexture();
 #ifdef USE_OPENGL

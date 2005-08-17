@@ -384,8 +384,8 @@ int ONScripterLabel::loadSaveFile2( FILE *fp, int file_version )
     fclose(fp);
 
     dirty_rect.fill( screen_width, screen_height );
-    flush( REFRESH_NORMAL_MODE );
     display_mode = next_display_mode = NORMAL_DISPLAY_MODE;
+    flush( refreshMode() );
 
     clickstr_state = CLICK_NONE;
     event_mode = 0;//WAIT_SLEEP_MODE;
