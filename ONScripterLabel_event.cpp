@@ -98,8 +98,8 @@ SDLKey transKey(SDLKey key)
  	switch(key){
       case SDLK_m:      key = SDLK_UP;      break; /* Menu                   */
       case SDLK_d:      key = SDLK_DOWN;    break; /* Play/Pause             */
-      case SDLK_f:      key = SDLK_0;       break; /* Fast forward           */
-      case SDLK_w:      key = SDLK_s;       break; /* Rewind                 */
+      case SDLK_f:      key = SDLK_RIGHT;   break; /* Fast forward           */
+      case SDLK_w:      key = SDLK_LEFT;    break; /* Rewind                 */
       case SDLK_RETURN: key = SDLK_RETURN;  break; /* Action                 */
       case SDLK_h:      key = SDLK_ESCAPE;  break; /* Hold                   */
       case SDLK_r:      key = SDLK_UNKNOWN; break; /* Wheel clockwise        */
@@ -147,14 +147,15 @@ SDL_KeyboardEvent transJoystickAxis(SDL_JoyAxisEvent &jaxis)
                 (jaxis.axis * 2 + (jaxis.value>0 ? 1 : 0) ));
 
     if (axis != old_axis){
-        old_axis = axis;
         if (axis == -1){
             event.type = SDL_KEYUP;
+            event.keysym.sym = axis_map[old_axis];
         }
         else{
             event.type = SDL_KEYDOWN;
             event.keysym.sym = axis_map[axis];
         }
+        old_axis = axis;
     }
     else{
         event.keysym.sym = SDLK_UNKNOWN;
@@ -328,6 +329,7 @@ void ONScripterLabel::mousePressEvent( SDL_MouseButtonEvent *event )
     current_button_state.x = event->x;
     current_button_state.y = event->y;
     current_button_state.down_flag = false;
+    skip_flag = false;
 
     if ( event->button == SDL_BUTTON_RIGHT &&
          event->type == SDL_MOUSEBUTTONUP &&
@@ -374,8 +376,6 @@ void ONScripterLabel::mousePressEvent( SDL_MouseButtonEvent *event )
 #endif
     else return;
     
-    skip_flag = false;
-
     if (event_mode & (WAIT_INPUT_MODE | WAIT_BUTTON_MODE)){
         playClickVoice();
         stopAnimation( clickstr_state );
