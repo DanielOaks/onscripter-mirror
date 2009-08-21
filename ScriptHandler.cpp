@@ -40,6 +40,7 @@ ScriptHandler::ScriptHandler()
     string_buffer       = new char[STRING_BUFFER_LENGTH];
     str_string_buffer   = new char[STRING_BUFFER_LENGTH];
     saved_string_buffer = new char[STRING_BUFFER_LENGTH];
+    gosub_string_buffer = new char[STRING_BUFFER_LENGTH];
 
     variable_data = new VariableData[VARIABLE_RANGE];
     extended_variable_data = NULL;
@@ -59,8 +60,9 @@ ScriptHandler::~ScriptHandler()
     if ( kidoku_buffer ) delete[] kidoku_buffer;
 
     delete[] string_buffer;
-    delete[] string_buffer;
+    delete[] str_string_buffer;
     delete[] saved_string_buffer;
+    delete[] gosub_string_buffer;
     delete[] variable_data;
 }
 
@@ -118,6 +120,7 @@ void ScriptHandler::reset()
         delete[] clickstr_list;
         clickstr_list = NULL;
     }
+    internal_current_script = NULL;
 }
 
 FILE *ScriptHandler::fopen( const char *path, const char *mode )
@@ -145,7 +148,7 @@ void ScriptHandler::setKeyTable( const unsigned char *key_table )
 }
 
 // basic parser function
-const char *ScriptHandler::readToken()
+const char *ScriptHandler::readToken(bool text_translation_flag)
 {
     current_script = next_script;
     char *buf = current_script;
@@ -176,59 +179,32 @@ const char *ScriptHandler::readToken()
              ch == '`' ||
 #endif             
              ch == '!' || ch == '#' || ch == ',' || ch == '"'){ // text
-        bool loop_flag = true;
-        bool ignore_click_flag = false;
-        do{
+        while(1){
             if ( IS_TWO_BYTE(ch) ){
-                if ( textgosub_flag && !ignore_click_flag && checkClickstr(buf) > 0) loop_flag = false;
                 addStringBuffer( ch );
                 ch = *++buf;
                 if (ch == 0x0a || ch == '\0') break;
                 addStringBuffer( ch );
                 buf++;
-                SKIP_SPACE(buf);
-                ch = *buf;
             }
             else{
-                if (ch == '%' || ch == '?'){
+                if (text_translation_flag && (ch == '%' || ch == '?')){
                     addIntVariable(&buf);
+                    SKIP_SPACE(buf);
                 }
-                else if (ch == '$'){
+                else if (text_translation_flag && ch == '$'){
                     addStrVariable(&buf);
+                    SKIP_SPACE(buf);
                 }
                 else{
-                    if (textgosub_flag && !ignore_click_flag && checkClickstr(buf) == 1)
-                        loop_flag = false;
+                    if (ch == 0x0a || ch == '\0') break;
                     addStringBuffer( ch );
                     buf++;
-                    ignore_click_flag = false;
-                    if (ch == '_') ignore_click_flag = true;
                 }
-                if (ch>='0' && ch<='9' && (*buf == ' ' || *buf == '\t'
-#ifdef ENABLE_1BYTE_CHAR
-                    || *buf == '`'
-#endif
-                     ) && string_counter%2 == 1) addStringBuffer( ' ' );
-                ch = *buf;
-                if (ch == 0x0a || ch == '\0' || !loop_flag
-#ifdef ENABLE_1BYTE_CHAR
-                    || ch == '`'
-#endif
-                    ) break;
-                SKIP_SPACE(buf);
-                ch = *buf;
             }
+            ch = *buf;
         }
-        while (ch != 0x0a && ch != '\0' && loop_flag
-#ifdef ENABLE_1BYTE_CHAR
-               && ch != '`'
-#endif
-               );
-        if (loop_flag && ch == 0x0a && !(textgosub_flag && linepage_flag)){
-            addStringBuffer( ch );
-            markAsKidoku( buf++ );
-        }
-            
+
         text_flag = true;
     }
 #ifdef ENABLE_1BYTE_CHAR
@@ -243,10 +219,6 @@ const char *ScriptHandler::readToken()
             ch = *++buf;
         }
         if (ch == '`') buf++;
-        if (ch == 0x0a && !(textgosub_flag && linepage_flag)){
-            addStringBuffer( ch );
-            markAsKidoku( buf++ );
-        }
         
         text_flag = true;
         end_status |= END_1BYTE_CHAR;
@@ -421,6 +393,32 @@ void ScriptHandler::popCurrent()
     next_script = pushed_next_script;
 }
 
+void ScriptHandler::enterExternalScript(char *pos)
+{
+    internal_current_script = current_script;
+    current_script = pos;
+    internal_next_script = next_script;
+    next_script = pos;
+    internal_end_status = end_status;
+    internal_current_variable = current_variable;
+    internal_pushed_variable = pushed_variable;
+}
+
+void ScriptHandler::leaveExternalScript()
+{
+    current_script = internal_current_script;
+    internal_current_script = NULL;
+    next_script = internal_next_script;
+    end_status = internal_end_status;
+    current_variable = internal_current_variable;
+    pushed_variable = internal_pushed_variable;
+}
+
+bool ScriptHandler::isExternalScript()
+{
+    return (internal_current_script != NULL);
+}
+
 int ScriptHandler::getOffset( char *pos )
 {
     return pos - script_buffer;
@@ -522,7 +520,8 @@ bool ScriptHandler::isKidoku()
 
 void ScriptHandler::markAsKidoku( char *address )
 {
-    if ( !kidokuskip_flag ) return;
+    if (!kidokuskip_flag || internal_current_script != NULL) return;
+
     int offset = current_script - script_buffer;
     if ( address ) offset = address - script_buffer;
     //printf("mark (%c)%x:%x = %d\n", *current_script, offset /8, offset%8, kidoku_buffer[ offset/8 ] & ((char)1 << (offset % 8)));
@@ -1059,7 +1058,7 @@ void ScriptHandler::addStrAlias( const char *str1, const char *str2 )
     last_str_alias = last_str_alias->next;
 }
 
-void ScriptHandler::errorAndExit( char *str )
+void ScriptHandler::errorAndExit( const char *str )
 {
     fprintf( stderr, " **** Script error, %s [%s] ***\n", str, string_buffer );
     exit(-1);
@@ -1071,6 +1070,19 @@ void ScriptHandler::addStringBuffer( char ch )
         errorAndExit("addStringBuffer: string exceeds 2048.");
     string_buffer[string_counter++] = ch;
     string_buffer[string_counter] = '\0';
+}
+
+void ScriptHandler::pushStringBuffer(int offset)
+{
+    strcpy(gosub_string_buffer, string_buffer);
+    gosub_string_offset = offset;
+}
+
+int ScriptHandler::popStringBuffer()
+{
+    strcpy(string_buffer, gosub_string_buffer);
+    text_flag = true;
+    return gosub_string_offset;
 }
 
 ScriptHandler::VariableData &ScriptHandler::getVariableData(int no)

@@ -350,11 +350,21 @@ int ScriptParser::returnCommand()
         script_h.setCurrent( last_nest_info->next_script );
     else
         setCurrentLabel( label+1);
-    
+
+    bool textgosub_flag = last_nest_info->textgosub_flag;
+
     last_nest_info = last_nest_info->previous;
     delete last_nest_info->next;
     last_nest_info->next = NULL;
     
+    if (textgosub_flag){
+        string_buffer_offset = script_h.popStringBuffer();
+        if (script_h.getStringBuffer()[string_buffer_offset] != 0)
+            return RET_NO_READ;
+        else
+            return RET_CONTINUE | RET_EOT;
+    }
+
     return RET_CONTINUE;
 }
 
@@ -438,8 +448,8 @@ int ScriptParser::nextCommand()
     val = script_h.getVariableData(last_nest_info->var_no).num;
     
     if ( break_flag ||
-         last_nest_info->step > 0 && val > last_nest_info->to ||
-         last_nest_info->step < 0 && val < last_nest_info->to ){
+         (last_nest_info->step > 0 && val > last_nest_info->to) ||
+         (last_nest_info->step < 0 && val < last_nest_info->to) ){
         break_flag = false;
         last_nest_info = last_nest_info->previous;
 
@@ -608,6 +618,27 @@ int ScriptParser::maxkaisoupageCommand()
     if ( current_mode != DEFINE_MODE ) errorAndExit( "maxkaisoupage: not in the define section" );
     max_page_list = script_h.readInt()+1;
 
+    return RET_CONTINUE;
+}
+
+int ScriptParser::luasubCommand()
+{
+    last_user_func->next = new UserFuncLUT();
+    last_user_func = last_user_func->next;
+    last_user_func->lua_flag = true;
+    setStr( &last_user_func->command, script_h.readLabel() );
+    
+    return RET_CONTINUE;
+}
+
+int ScriptParser::luacallCommand()
+{
+    const char *label = script_h.readLabel();
+
+#ifdef USE_LUA
+    lua_handler.addCallback(label);
+#endif
+    
     return RET_CONTINUE;
 }
 
@@ -864,13 +895,18 @@ int ScriptParser::gotoCommand()
     return RET_CONTINUE;
 }
 
-void ScriptParser::gosubReal( const char *label, char *next_script )
+void ScriptParser::gosubReal( const char *label, char *next_script, bool textgosub_flag )
 {
     last_nest_info->next = new NestInfo();
     last_nest_info->next->previous = last_nest_info;
 
     last_nest_info = last_nest_info->next;
     last_nest_info->next_script = next_script;
+
+    if (textgosub_flag){
+        script_h.pushStringBuffer(string_buffer_offset);
+        last_nest_info->textgosub_flag = true;
+    }
 
     setCurrentLabel( label );
 }
@@ -964,8 +1000,8 @@ int ScriptParser::forCommand()
         last_nest_info->step = 1;
     }
 
-    if (last_nest_info->step > 0 && from > last_nest_info->to ||
-        last_nest_info->step < 0 && from < last_nest_info->to)
+    if ((last_nest_info->step > 0 && from > last_nest_info->to) ||
+        (last_nest_info->step < 0 && from < last_nest_info->to))
         break_flag = true;
     else
         break_flag = false;

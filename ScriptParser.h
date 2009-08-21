@@ -2,7 +2,7 @@
  * 
  *  ScriptParser.h - Define block parser of ONScripter
  *
- *  Copyright (c) 2001-2008 Ogapee. All rights reserved.
+ *  Copyright (c) 2001-2009 Ogapee. All rights reserved.
  *
  *  ogapee@aqua.dti2.ne.jp
  *
@@ -35,6 +35,9 @@
 #include "DirectReader.h"
 #include "AnimationInfo.h"
 #include "FontInfo.h"
+#ifdef USE_LUA
+#include "LUAHandler.h"
+#endif
 
 #if defined(USE_OGG_VORBIS)
 #if defined(INTEGER_OGG_VORBIS)
@@ -85,6 +88,8 @@ public:
     void reset();
     int open();
     int parseLine();
+    void setCurrentLabel( const char *label );
+    void gosubReal( const char *label, char *next_script, bool textgosub_flag=false );
 
     FILE *fopen(const char *path, const char *mode);
     void saveGlovalData();
@@ -132,6 +137,8 @@ public:
     int menuselectvoiceCommand();
     int menuselectcolorCommand();
     int maxkaisoupageCommand();
+    int luasubCommand();
+    int luacallCommand();
     int lookbackspCommand();
     int lookbackcolorCommand();
     //int lookbackbuttonCommand();
@@ -179,9 +186,11 @@ protected:
     struct UserFuncLUT{
         struct UserFuncLUT *next;
         char *command;
+        bool lua_flag;
         UserFuncLUT(){
             next = NULL;
             command = NULL;
+            lua_flag = false;
         };
         ~UserFuncLUT(){
             if (command) delete[] command;
@@ -195,10 +204,12 @@ protected:
         int  nest_mode;
         char *next_script; // used in gosub and for
         int  var_no, to, step; // used in for
+        bool textgosub_flag; // used in textgosub and pretextgosub
 
         NestInfo(){
             previous = next = NULL;
             nest_mode = LABEL;
+            textgosub_flag = false;
         };
     } last_tilde;
 
@@ -217,14 +228,13 @@ protected:
     enum { RET_NOMATCH   = 0,
            RET_SKIP_LINE = 1,
            RET_CONTINUE  = 2,
-           RET_WAIT      = 4,
-           RET_NOREAD    = 8,
-           RET_REREAD    = 16
+           RET_NO_READ   = 4,
+           RET_EOL       = 8, // end of line (0x0a is found)
+           RET_EOT       = 16 // end of text (the end of string_buffer is reached)
     };
     enum { CLICK_NONE    = 0,
            CLICK_WAIT    = 1,
            CLICK_NEWPAGE = 2,
-           CLICK_IGNORE  = 3,
            CLICK_EOL     = 4
     };
     enum{ NORMAL_MODE, DEFINE_MODE };
@@ -258,6 +268,10 @@ protected:
     ScriptHandler::LabelInfo current_label_info;
     int current_line;
 
+#ifdef USE_LUA
+    LUAHandler lua_handler;
+#endif
+
     /* ---------------------------------------- */
     /* Global definitions */
     int screen_ratio1, screen_ratio2;
@@ -271,8 +285,6 @@ protected:
     void deleteNestInfo();
     void setStr( char **dst, const char *src, int num=-1 );
     
-    void gosubReal( const char *label, char *next_script );
-    void setCurrentLabel( const char *label );
     void readToken();
 
     /* ---------------------------------------- */
@@ -362,7 +374,7 @@ protected:
             text[text_count++] = ch;
             return 0;
         };
-    } *page_list, *start_page, *current_page, current_tag; // ring buffer
+    } *page_list, *start_page, *current_page; // ring buffer
     int  max_page_list;
     int  clickstr_line;
     int  clickstr_state;

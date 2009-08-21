@@ -41,7 +41,8 @@ class ScriptHandler
 public:
     enum { END_NONE       = 0,
            END_COMMA      = 1,
-           END_1BYTE_CHAR = 2
+           END_1BYTE_CHAR = 2,
+           END_COMMA_READ = 4 // for LUA
     };
     struct LabelInfo{
         char *name;
@@ -106,7 +107,7 @@ public:
     void setKeyTable( const unsigned char *key_table );
 
     // basic parser function
-    const char *readToken();
+    const char *readToken(bool text_translation_flag=true);
     const char *readLabel();
     void readVariable( bool reread_flag=false );
     const char *readStr();
@@ -115,9 +116,11 @@ public:
     void skipToken();
 
     // function for string access
-    inline char *getStringBuffer(){ return string_buffer; };
+    char *getStringBuffer(){ return string_buffer; };
     char *saveStringBuffer();
     void addStringBuffer( char ch );
+    void pushStringBuffer(int offset); // used in textgosub and pretextgosub
+    int  popStringBuffer(); // used in textgosub and pretextgosub
     
     // function for direct manipulation of script address 
     inline char *getCurrent(){ return current_script; };
@@ -125,6 +128,10 @@ public:
     void setCurrent(char *pos);
     void pushCurrent( char *pos );
     void popCurrent();
+
+    void enterExternalScript(char *pos); // LUA
+    void leaveExternalScript();
+    bool isExternalScript();
 
     int  getOffset( char *pos );
     char *getAddress( int offset );
@@ -136,6 +143,7 @@ public:
     bool isName( const char *name );
     bool isText();
     bool compareString( const char *buf );
+    void setEndStatus(int val){ end_status |= val; };
     inline int getEndStatus(){ return end_status; };
     void skipLine( int no=1 );
     void setLinepage( bool val );
@@ -168,7 +176,7 @@ public:
 
     LabelInfo lookupLabel( const char* label );
     LabelInfo lookupLabelNext( const char* label );
-    void errorAndExit( char *str );
+    void errorAndExit( const char *str );
 
     ArrayVariable *getRootArrayVariable();
     void loadArrayVariable( FILE *fp );
@@ -176,8 +184,8 @@ public:
     void addNumAlias( const char *str, int no );
     void addStrAlias( const char *str1, const char *str2 );
 
-    typedef enum { LABEL_LOG = 0,
-                   FILE_LOG = 1
+    enum { LABEL_LOG = 0,
+           FILE_LOG = 1
     };
     struct LogLink{
         LogLink *next;
@@ -195,7 +203,7 @@ public:
         LogLink root_log;
         LogLink *current_log;
         int num_logs;
-        char *filename;
+        const char *filename;
     } log_info[2];
     LogLink *findAndAddLog( LogInfo &info, const char *name, bool add_flag );
     void resetLog( LogInfo &info );
@@ -311,6 +319,8 @@ private:
     int  string_counter;
     char *saved_string_buffer; // updated only by saveStringBuffer
     char *str_string_buffer; // updated only by readStr
+    char *gosub_string_buffer; // used in textgosub and pretextgosub
+    int gosub_string_offset; // used in textgosub and pretextgosub
 
     LabelInfo *label_info;
     int num_of_labels;
@@ -330,6 +340,11 @@ private:
 
     char *pushed_current_script;
     char *pushed_next_script;
+
+    char *internal_current_script;
+    char *internal_next_script;
+    int  internal_end_status;
+    VariableInfo internal_current_variable, internal_pushed_variable;
 
     unsigned char key_table[256];
     bool key_table_flag;

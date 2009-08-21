@@ -2,7 +2,7 @@
  * 
  *  ONScripterLabel_text.cpp - Text parser of ONScripter
  *
- *  Copyright (c) 2001-2008 Ogapee. All rights reserved.
+ *  Copyright (c) 2001-2009 Ogapee. All rights reserved.
  *
  *  ogapee@aqua.dti2.ne.jp
  *
@@ -26,22 +26,22 @@
 extern unsigned short convSJIS2UTF16( unsigned short in );
 
 #define IS_KINSOKU(x)	\
-        ( *(x) == (char)0x81 && *((x)+1) == (char)0x41 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x42 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x48 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x49 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x76 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x78 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x5b )
+    ((*(x) == (char)0x81 && *((x)+1) == (char)0x41) ||  \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x42) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x48) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x49) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x76) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x78) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x5b) )
 
 #define IS_ROTATION_REQUIRED(x)	\
-        ( !IS_TWO_BYTE(*(x)) || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x50 || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x51 || \
-          *(x) == (char)0x81 && *((x)+1) >= 0x5b && *((x)+1) <= 0x5d || \
-          *(x) == (char)0x81 && *((x)+1) >= 0x60 && *((x)+1) <= 0x64 || \
-          *(x) == (char)0x81 && *((x)+1) >= 0x69 && *((x)+1) <= 0x7a || \
-          *(x) == (char)0x81 && *((x)+1) == (char)0x80 )
+    (!IS_TWO_BYTE(*(x)) ||                                              \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x50) ||                  \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x51) ||                  \
+     (*(x) == (char)0x81 && *((x)+1) >= 0x5b && *((x)+1) <= 0x5d) ||    \
+     (*(x) == (char)0x81 && *((x)+1) >= 0x60 && *((x)+1) <= 0x64) ||    \
+     (*(x) == (char)0x81 && *((x)+1) >= 0x69 && *((x)+1) <= 0x7a) ||    \
+     (*(x) == (char)0x81 && *((x)+1) == (char)0x80) )
 
 #define IS_TRANSLATION_REQUIRED(x)	\
         ( *(x) == (char)0x81 && *((x)+1) >= 0x41 && *((x)+1) <= 0x44 )
@@ -277,17 +277,25 @@ void ONScripterLabel::drawString( const char *str, uchar3 color, FontInfo *info,
 
         if ( IS_TWO_BYTE(*str) ){
             /* Kinsoku process */
-            if (info->isEndOfLine(2) && IS_KINSOKU( str+2 )){
-                info->newLine();
-                for (int i=0 ; i<indent_offset ; i++){
-                    sentence_font.advanceCharInHankaku(2);
+            if (IS_KINSOKU( str+2 )){
+                int i = 2;
+                while (!info->isEndOfLine(i) &&
+                       IS_KINSOKU( str+2+i )){
+                    i += 2;
+                }
+                if (info->isEndOfLine(i)){
+                    info->newLine();
+                    for (int i=0 ; i<indent_offset ; i++){
+                        sentence_font.advanceCharInHankaku(2);
+                    }
                 }
             }
+
             text[0] = *str++;
             text[1] = *str++;
             drawChar( text, info, false, false, surface, cache_info );
         }
-        else if (*str == 0x0a || *str == '\\' && info->is_newline_accepted){
+        else if (*str == 0x0a || (*str == '\\' && info->is_newline_accepted)){
             info->newLine();
             str++;
         }
@@ -352,7 +360,7 @@ void ONScripterLabel::restoreTextBuffer()
                 if (IS_KINSOKU( current_page->text+i+2 )){
                     int j = 2;
                     while (!f_info.isEndOfLine(j) &&
-                           IS_KINSOKU( current_page->text+i+j+2 )){
+                           IS_KINSOKU( current_page->text+i+2+j )){
                         j += 2;
                     }
                     if (f_info.isEndOfLine(j)) f_info.newLine();
@@ -372,101 +380,93 @@ void ONScripterLabel::restoreTextBuffer()
     }
 }
 
-int ONScripterLabel::enterTextDisplayMode(bool text_flag)
+void ONScripterLabel::enterTextDisplayMode(bool text_flag)
 {
     if (line_enter_status <= 1 && saveon_flag && internal_saveon_flag && text_flag){
         saveSaveFile( -1 );
         internal_saveon_flag = false;
     }
     
-    if ( !(display_mode & DISPLAY_MODE_TEXT) ){
-        if ( event_mode & EFFECT_EVENT_MODE ){
-            if ( doEffect( &window_effect, false ) == RET_CONTINUE ){
-                display_mode = DISPLAY_MODE_TEXT;
-                text_on_flag = true;
-                return RET_CONTINUE | RET_NOREAD;
-            }
-            return RET_WAIT | RET_REREAD;
-        }
-        else{
-            refreshSurface( effect_dst_surface, NULL, refresh_shadow_text_mode );
-            dirty_rect.clear();
-            dirty_rect.add( sentence_font_info.pos );
+    if (!(display_mode & DISPLAY_MODE_TEXT)){
+        refreshSurface( effect_dst_surface, NULL, refresh_shadow_text_mode );
+        dirty_rect.clear();
+        dirty_rect.add( sentence_font_info.pos );
 
-            return setEffect( &window_effect, false, true );
-        }
+        if (setEffect(&window_effect, false, true)) return;
+        while(doEffect(&window_effect, false));
+
+        display_mode = DISPLAY_MODE_TEXT;
+        text_on_flag = true;
     }
-    
-    return RET_NOMATCH;
 }
 
-int ONScripterLabel::leaveTextDisplayMode(bool force_leave_flag)
+void ONScripterLabel::leaveTextDisplayMode(bool force_leave_flag)
 {
-    if ( display_mode & DISPLAY_MODE_TEXT &&
-         (force_leave_flag || erase_text_window_mode != 0) ){
+    if (display_mode & DISPLAY_MODE_TEXT &&
+        (force_leave_flag || erase_text_window_mode != 0)){
 
-        if ( event_mode & EFFECT_EVENT_MODE ){
-            if ( doEffect( &window_effect, false ) == RET_CONTINUE ){
-                display_mode = DISPLAY_MODE_NORMAL | DISPLAY_MODE_UPDATED;
-                return RET_CONTINUE | RET_NOREAD;
-            }
-            return RET_WAIT | RET_REREAD;
-        }
-        else{
-            SDL_BlitSurface( backup_surface, NULL, effect_dst_surface, NULL );
-            dirty_rect.add( sentence_font_info.pos );
+        SDL_BlitSurface(backup_surface, NULL, effect_dst_surface, NULL);
+        dirty_rect.add(sentence_font_info.pos);
             
-            return setEffect( &window_effect, false, false );
-        }
+        if (setEffect(&window_effect, false, false)) return;
+        while(doEffect(&window_effect, false));
+
+        display_mode = DISPLAY_MODE_NORMAL;
     }
 
     display_mode |= DISPLAY_MODE_UPDATED;
-    
-    return RET_NOMATCH;
 }
 
-void ONScripterLabel::doClickEnd()
+bool ONScripterLabel::doClickEnd()
 {
+    bool ret = false;
+    
+    draw_cursor_flag = true;
+
     if ( automode_flag ){
-        event_mode =  WAIT_TEXT_MODE | WAIT_INPUT_MODE | WAIT_VOICE_MODE;
+        event_mode =  WAIT_TEXT_MODE | WAIT_INPUT_MODE | WAIT_VOICE_MODE | WAIT_TIMER_MODE;
         if ( automode_time < 0 )
-            startTimer( -automode_time * num_chars_in_sentence );
+            ret = waitEvent( -automode_time * num_chars_in_sentence );
         else
-            startTimer( automode_time );
+            ret = waitEvent( automode_time );
     }
     else if ( autoclick_time > 0 ){
-        event_mode = WAIT_SLEEP_MODE;
-        startTimer( autoclick_time );
+        event_mode = WAIT_SLEEP_MODE | WAIT_TIMER_MODE;
+        ret = waitEvent( autoclick_time );
     }
     else{
         event_mode = WAIT_TEXT_MODE | WAIT_INPUT_MODE | WAIT_TIMER_MODE;
-        advancePhase();
+        ret = waitEvent(-1);
     }
-    draw_cursor_flag = true;
+
     num_chars_in_sentence = 0;
+    draw_cursor_flag = false;
+
+    return ret;
 }
 
-int ONScripterLabel::clickWait( char *out_text )
+bool ONScripterLabel::clickWait( char *out_text )
 {
     if ( skip_mode & SKIP_TO_EOL ){
         flush( refreshMode() );
         skip_mode &= ~SKIP_TO_EOL;
     }
 
+    if (script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset) != 1) string_buffer_offset++;
+    string_buffer_offset++;
+
     if ( (skip_mode & (SKIP_NORMAL | SKIP_TO_EOP) || ctrl_pressed_status) && !textgosub_label ){
         clickstr_state = CLICK_NONE;
         if ( out_text ){
             drawDoubleChars( out_text, &sentence_font, false, true, accumulation_surface, &text_info );
-            if (out_text[1]) string_buffer_offset++;
-            string_buffer_offset++;
         }
         else{ // called on '@'
             flush(refreshMode());
-            string_buffer_offset++;
         }
         num_chars_in_sentence = 0;
 
-        return RET_CONTINUE | RET_NOREAD;
+        event_mode = IDLE_EVENT_MODE;
+        if ( waitEvent(0) ) return false;
     }
     else{
         key_pressed_flag = false;
@@ -478,24 +478,25 @@ int ONScripterLabel::clickWait( char *out_text )
             saveoffCommand();
 
             textgosub_clickstr_state = CLICK_WAIT;
-            if (script_h.getNext()[0] == 0x0a)
-                textgosub_clickstr_state |= CLICK_EOL;
-            gosubReal( textgosub_label, script_h.getNext() );
-            indent_offset = 0;
-            line_enter_status = 0;
-            page_enter_status = 0;
-            string_buffer_offset = 0;
-            return RET_CONTINUE;
+            gosubReal( textgosub_label, script_h.getNext(), true );
+
+            event_mode = IDLE_EVENT_MODE;
+            waitEvent(0);
+
+            return false;
         }
 
         clickstr_state = CLICK_WAIT;
-        doClickEnd();
+        if (doClickEnd()) return false;
 
-        return RET_WAIT | RET_NOREAD;
+        clickstr_state = CLICK_NONE;
+        key_pressed_flag = false;
     }
+
+    return true;
 }
 
-int ONScripterLabel::clickNewPage( char *out_text )
+bool ONScripterLabel::clickNewPage( char *out_text )
 {
     if ( out_text ){
         drawDoubleChars( out_text, &sentence_font, true, true, accumulation_surface, &text_info );
@@ -506,11 +507,15 @@ int ONScripterLabel::clickNewPage( char *out_text )
         skip_mode &= ~SKIP_TO_EOL;
     }
     
+    if (script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset) != 1) string_buffer_offset++;
+    string_buffer_offset++;
+
     if ( (skip_mode & SKIP_NORMAL || ctrl_pressed_status) && !textgosub_label  ){
-        event_mode = WAIT_SLEEP_MODE;
-        advancePhase();
         num_chars_in_sentence = 0;
         clickstr_state = CLICK_NEWPAGE;
+
+        event_mode = IDLE_EVENT_MODE;
+        if (waitEvent(0)) return false;
     }
     else{
         key_pressed_flag = false;
@@ -518,18 +523,23 @@ int ONScripterLabel::clickNewPage( char *out_text )
             saveoffCommand();
 
             textgosub_clickstr_state = CLICK_NEWPAGE;
-            gosubReal( textgosub_label, script_h.getNext() );
-            indent_offset = 0;
-            line_enter_status = 0;
-            page_enter_status = 0;
-            string_buffer_offset = 0;
-            return RET_CONTINUE;
+            gosubReal( textgosub_label, script_h.getNext(), true );
+
+            event_mode = IDLE_EVENT_MODE;
+            waitEvent(0);
+
+            return false;
         }
 
         clickstr_state = CLICK_NEWPAGE;
-        doClickEnd();
+        if (doClickEnd()) return false;
     }
-    return RET_WAIT | RET_NOREAD;
+
+    newPage( true );
+    clickstr_state = CLICK_NONE;
+    key_pressed_flag = false;
+
+    return true;
 }
 
 void ONScripterLabel::startRuby(const char *buf, FontInfo &info)
@@ -605,78 +615,76 @@ int ONScripterLabel::textCommand()
         internal_saveon_flag = false;
     }
 
-    char *start_buf = script_h.getCurrent();
+    char *buf = script_h.getStringBuffer();
 
     if (pretextgosub_label && 
         (!pagetag_flag || page_enter_status == 0) &&
-        (line_enter_status == 0 ||
-         (line_enter_status == 1 &&
-          (start_buf[0] == '[' ||
-           zenkakko_flag && start_buf[0] == "y"[0] && start_buf[1] == "y"[1]))) ){
-        if (start_buf[0] == '[')
-            start_buf++;
-        else if (zenkakko_flag && start_buf[0] == "y"[0] && start_buf[1] == "y"[1])
-            start_buf += 2;
+        line_enter_status == 0){
+
+        bool tag_flag = true;
+        if (buf[string_buffer_offset] == '[')
+            string_buffer_offset++;
+        else if (zenkakko_flag && 
+                 buf[string_buffer_offset  ] == "y"[0] && 
+                 buf[string_buffer_offset+1] == "y"[1])
+            string_buffer_offset += 2;
         else
-            start_buf = NULL;
-        
-        char *end_buf = start_buf;
-        while (end_buf && *end_buf){
-            if (zenkakko_flag && end_buf[0] == "z"[0] && end_buf[1] == "z"[1]){
-                script_h.setCurrent(end_buf+2);
+            tag_flag = false;
+
+        int start_offset = string_buffer_offset;
+        int end_offset = start_offset;
+        while (tag_flag && buf[string_buffer_offset]){
+            if (zenkakko_flag && 
+                buf[string_buffer_offset  ] == "z"[0] && 
+                buf[string_buffer_offset+1] == "z"[1]){
+                end_offset = string_buffer_offset;
+                string_buffer_offset += 2;
                 break;
             }
-            else if (*end_buf == ']'){
-                script_h.setCurrent(end_buf+1);
+            else if (buf[string_buffer_offset] == ']'){
+                end_offset = string_buffer_offset;
+                string_buffer_offset++;
                 break;
             }
-            else if (IS_TWO_BYTE(end_buf[0]))
-                end_buf+=2;
+            else if (IS_TWO_BYTE(buf[string_buffer_offset]))
+                string_buffer_offset += 2;
             else
-                end_buf++;
+                string_buffer_offset++;
         }
 
         if (current_page->tag) delete[] current_page->tag;
-        if (current_tag.tag) delete[] current_tag.tag;
-        if (start_buf){
-            int len = end_buf - start_buf;
+        if (end_offset > start_offset){
+            int len = end_offset - start_offset;
             current_page->tag = new char[len+1];
-            memcpy(current_page->tag, start_buf, len);
+            memcpy(current_page->tag, buf + start_offset, len);
             current_page->tag[len] = 0;
-
-            current_tag.tag = new char[len+1];
-            memcpy(current_tag.tag, current_page->tag, len+1);
         }
         else{
             current_page->tag = NULL;
-            current_tag.tag = NULL;
         }
 
-        gosubReal( pretextgosub_label, script_h.getCurrent() );
+        gosubReal( pretextgosub_label, script_h.getNext(), true );
         line_enter_status = 1;
 
         return RET_CONTINUE;
     }
 
-    int ret = enterTextDisplayMode();
-    if ( ret != RET_NOMATCH ) return ret;
+    enterTextDisplayMode();
 
     line_enter_status = 2;
     if (pagetag_flag) page_enter_status = 1;
 
-    ret = processText();
-    if (ret == RET_CONTINUE){
-        indent_offset = 0;
-    }
-    
-    return ret;
+    while(processText());
+
+    return RET_CONTINUE;
 }
 
-void ONScripterLabel::processEOL()
+void ONScripterLabel::processEOT()
 {
     int i, n;
     
     if (!sentence_font.isLineEmpty() && !new_line_skip_flag){
+        // if sentence_font.isLineEmpty() is true, newPage() might be already issued
         if (page_enter_status == 1){
             n = sentence_font.num_xy[0] - sentence_font.xy[0]/2;
             for (i=0 ; i<n ; i++){
@@ -690,76 +698,29 @@ void ONScripterLabel::processEOL()
         }
             
         sentence_font.newLine();
-        for (i=0 ; i<indent_offset ; i++){
-            current_page->add(((char*)"@")[0]);
-            current_page->add(((char*)"@")[1]);
-            sentence_font.advanceCharInHankaku(2);
-        }
     }
+
+    if (!new_line_skip_flag) line_enter_status = 0;
 }
 
-int ONScripterLabel::processText()
+bool ONScripterLabel::processText()
 {
     //printf("textCommand %c %d %d %d\n", script_h.getStringBuffer()[ string_buffer_offset ], string_buffer_offset, event_mode, line_enter_status);
     char out_text[3]= {'\0', '\0', '\0'};
 
-    if ( event_mode & (WAIT_INPUT_MODE | WAIT_SLEEP_MODE) ){
-        draw_cursor_flag = false;
-        if ( clickstr_state == CLICK_WAIT ){
-            if (script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset) != 1) string_buffer_offset++;
-            string_buffer_offset++;
-            clickstr_state = CLICK_NONE;
-            key_pressed_flag = false;
-        }
-        else if ( clickstr_state == CLICK_NEWPAGE ){
-            event_mode = IDLE_EVENT_MODE;
-            if (script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset) != 1) string_buffer_offset++;
-            string_buffer_offset++;
-            newPage( true );
-            clickstr_state = CLICK_NONE;
-            key_pressed_flag = false;
-            return RET_CONTINUE | RET_NOREAD;
-        }
-        else if ( IS_TWO_BYTE(script_h.getStringBuffer()[ string_buffer_offset ]) ){
-            string_buffer_offset += 2;
-        }
-        else if ( script_h.getStringBuffer()[ string_buffer_offset ] == '!' ){
-            string_buffer_offset++;
-            if ( script_h.getStringBuffer()[ string_buffer_offset ] == 'w' || script_h.getStringBuffer()[ string_buffer_offset ] == 'd' ){
-                string_buffer_offset++;
-                while ( script_h.getStringBuffer()[ string_buffer_offset ] >= '0' &&
-                        script_h.getStringBuffer()[ string_buffer_offset ] <= '9' )
-                    string_buffer_offset++;
-                while (script_h.getStringBuffer()[ string_buffer_offset ] == ' ' ||
-                       script_h.getStringBuffer()[ string_buffer_offset ] == '\t') string_buffer_offset++;
-            }
-        }
-        else if ( script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
-                  !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) ){
-            string_buffer_offset += 2;
-        }
-        else{
-            string_buffer_offset++;
-        }
-
-        event_mode = IDLE_EVENT_MODE;
-    }
-
-    
-    if (script_h.getStringBuffer()[string_buffer_offset] == 0x0a ||
-        script_h.getStringBuffer()[string_buffer_offset] == 0x00){
-        indent_offset = 0; // redundant
-        return RET_CONTINUE;
-    }
-
-    new_line_skip_flag = false;
-    
     //printf("*** textCommand %d (%d,%d)\n", string_buffer_offset, sentence_font.xy[0], sentence_font.xy[1]);
 
     while( (!(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) &&
             script_h.getStringBuffer()[ string_buffer_offset ] == ' ') ||
            script_h.getStringBuffer()[ string_buffer_offset ] == '\t' ) string_buffer_offset ++;
 
+    if (script_h.getStringBuffer()[string_buffer_offset] == 0x00){
+        processEOT();
+        return false;
+    }
+
+    new_line_skip_flag = false;
+    
     char ch = script_h.getStringBuffer()[string_buffer_offset];
     if ( IS_TWO_BYTE(ch) ){ // Shift jis
         /* ---------------------------------------- */
@@ -767,7 +728,7 @@ int ONScripterLabel::processText()
         if (IS_KINSOKU( script_h.getStringBuffer() + string_buffer_offset + 2)){
             int i = 2;
             while (!sentence_font.isEndOfLine(i) &&
-                   IS_KINSOKU( script_h.getStringBuffer() + string_buffer_offset + i + 2)){
+                   IS_KINSOKU( script_h.getStringBuffer() + string_buffer_offset + 2 + i)){
                 i += 2;
             }
 
@@ -783,38 +744,34 @@ int ONScripterLabel::processText()
         
         out_text[0] = script_h.getStringBuffer()[string_buffer_offset];
         out_text[1] = script_h.getStringBuffer()[string_buffer_offset+1];
-        if ( clickstr_state == CLICK_IGNORE ){
-            clickstr_state = CLICK_NONE;
+
+        if (script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset]) > 0){
+            if (sentence_font.getRemainingLine() <= clickstr_line)
+                return clickNewPage( out_text );
+            else
+                return clickWait( out_text );
         }
         else{
-            if (script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset]) > 0){
-                if (sentence_font.getRemainingLine() <= clickstr_line)
-                    return clickNewPage( out_text );
-                else
-                    return clickWait( out_text );
-            }
-            else{
-                clickstr_state = CLICK_NONE;
-            }
+            clickstr_state = CLICK_NONE;
         }
         
         if ( skip_mode || ctrl_pressed_status ){
             drawChar( out_text, &sentence_font, false, true, accumulation_surface, &text_info );
-            num_chars_in_sentence++;
-                
-            string_buffer_offset += 2;
-            return RET_CONTINUE | RET_NOREAD;
         }
         else{
             drawChar( out_text, &sentence_font, true, true, accumulation_surface, &text_info );
-            num_chars_in_sentence++;
-            event_mode = WAIT_SLEEP_MODE | WAIT_INPUT_MODE;
+
+            event_mode = WAIT_TIMER_MODE | WAIT_INPUT_MODE;
             if ( sentence_font.wait_time == -1 )
-                advancePhase( default_text_speed[text_speed_no] );
+                waitEvent( default_text_speed[text_speed_no] );
             else
-                advancePhase( sentence_font.wait_time );
-            return RET_WAIT | RET_NOREAD;
+                waitEvent( sentence_font.wait_time );
         }
+        
+        num_chars_in_sentence++;
+        string_buffer_offset += 2;
+
+        return true;
     }
     else if ( ch == '@' ){ // wait for click
         return clickWait( NULL );
@@ -822,10 +779,23 @@ int ONScripterLabel::processText()
     else if ( ch == '\\' ){ // new page
         return clickNewPage( NULL );
     }
-    else if ( ch == '_' ){ // Ignore following forced return
-        clickstr_state = CLICK_IGNORE;
+    else if ( ch == '_' ){ // Ignore an immediate click wait
         string_buffer_offset++;
-        return RET_CONTINUE | RET_NOREAD;
+
+        int matched_len = script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset, true);
+        if (matched_len > 0){
+            out_text[0] = script_h.getStringBuffer()[string_buffer_offset];
+            if (out_text[0] != '@' && out_text[0] != '\\'){
+                if (matched_len == 2)
+                    out_text[1] = script_h.getStringBuffer()[string_buffer_offset+1];
+                bool flush_flag = true;
+                if ( skip_mode || ctrl_pressed_status ) flush_flag = false;
+                drawDoubleChars( out_text, &sentence_font, flush_flag, true, accumulation_surface, &text_info );
+            }
+            string_buffer_offset += matched_len;
+        }
+        
+        return true;
     }
     else if ( ch == '!' && !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) ){
         string_buffer_offset++;
@@ -852,7 +822,6 @@ int ONScripterLabel::processText()
             bool flag = false;
             if ( script_h.getStringBuffer()[ string_buffer_offset ] == 'd' ) flag = true;
             string_buffer_offset++;
-            int tmp_string_buffer_offset = string_buffer_offset;
             int t = 0;
             while( script_h.getStringBuffer()[ string_buffer_offset ] >= '0' &&
                    script_h.getStringBuffer()[ string_buffer_offset ] <= '9' ){
@@ -861,32 +830,28 @@ int ONScripterLabel::processText()
             }
             while (script_h.getStringBuffer()[ string_buffer_offset ] == ' ' ||
                    script_h.getStringBuffer()[ string_buffer_offset ] == '\t') string_buffer_offset++;
-            if ( skip_mode || ctrl_pressed_status ){
-                return RET_CONTINUE | RET_NOREAD;
-            }
-            else{
-                event_mode = WAIT_SLEEP_MODE;
-                if ( flag ) event_mode |= WAIT_INPUT_MODE;
+            if (!skip_mode && !ctrl_pressed_status){
+                if (flag) event_mode = WAIT_INPUT_MODE;
                 key_pressed_flag = false;
-                startTimer( t );
-                string_buffer_offset = tmp_string_buffer_offset - 2;
-                return RET_WAIT | RET_NOREAD;
+
+                event_mode = WAIT_TIMER_MODE | WAIT_SLEEP_MODE;
+                waitEvent(t);
             }
         }
-        return RET_CONTINUE | RET_NOREAD;
+        return true;
     }
     else if ( ch == '#' && !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) ){
         readColor( &sentence_font.color, script_h.getStringBuffer() + string_buffer_offset );
         readColor( &ruby_font.color, script_h.getStringBuffer() + string_buffer_offset );
         string_buffer_offset += 7;
-        return RET_CONTINUE | RET_NOREAD;
+        return true;
     }
     else if ( ch == '(' && !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR)){
         current_page->add('(');
         startRuby( script_h.getStringBuffer() + string_buffer_offset + 1, sentence_font );
         
         string_buffer_offset++;
-        return RET_CONTINUE | RET_NOREAD;
+        return true;
     }
     else if ( ch == '/' && !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) ){
         if ( ruby_struct.stage == RubyStruct::BODY ){
@@ -902,14 +867,14 @@ int ONScripterLabel::processText()
                 string_buffer_offset++;
             }
 
-            return RET_CONTINUE | RET_NOREAD;
+            return true;
         }
         else{ // skip new line
             new_line_skip_flag = true;
             string_buffer_offset++;
-            if (script_h.getStringBuffer()[string_buffer_offset] != 0x0a)
+            if (script_h.getStringBuffer()[string_buffer_offset] != 0x00)
                 errorAndExit( "'new line' must follow '/'." );
-            return RET_CONTINUE; // skip the following eol
+            return true; // skip the following eol
         }
     }
     else if ( ch == ')' && !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR) &&
@@ -917,55 +882,49 @@ int ONScripterLabel::processText()
         current_page->add(')');
         string_buffer_offset++;
         ruby_struct.stage = RubyStruct::NONE;
-        return RET_CONTINUE | RET_NOREAD;
+        return true;
     }
     else{
         out_text[0] = ch;
         
-        if ( clickstr_state == CLICK_IGNORE ){
-            clickstr_state = CLICK_NONE;
-        }
-        else{
-            int matched_len = script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset);
+        int matched_len = script_h.checkClickstr(script_h.getStringBuffer() + string_buffer_offset);
 
-            if (matched_len > 0){
-                if (matched_len == 2) out_text[1] = script_h.getStringBuffer()[ string_buffer_offset + 1 ];
+        if (matched_len > 0){
+            if (matched_len == 2) out_text[1] = script_h.getStringBuffer()[ string_buffer_offset + 1 ];
+            if (sentence_font.getRemainingLine() <= clickstr_line)
+                return clickNewPage( out_text );
+            else
+                return clickWait( out_text );
+        }
+        else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
+                 script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset+1]) == 1 &&
+                 script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR){
+            if ( script_h.getStringBuffer()[ string_buffer_offset + 2 ] &&
+                 script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset+2]) > 0){
+                clickstr_state = CLICK_NONE;
+            }
+            else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] == '@'){
+                return clickWait( out_text );
+            }
+            else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] == '\\'){
+                return clickNewPage( out_text );
+            }
+            else{
+                out_text[1] = script_h.getStringBuffer()[ string_buffer_offset + 1 ];
                 if (sentence_font.getRemainingLine() <= clickstr_line)
                     return clickNewPage( out_text );
                 else
                     return clickWait( out_text );
             }
-            else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
-                     script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset+1]) == 1 &&
-                     script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR){
-                if ( script_h.getStringBuffer()[ string_buffer_offset + 2 ] &&
-                     script_h.checkClickstr(&script_h.getStringBuffer()[string_buffer_offset+2]) > 0){
-                    clickstr_state = CLICK_NONE;
-                }
-                else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] == '@'){
-                    return clickWait( out_text );
-                }
-                else if (script_h.getStringBuffer()[ string_buffer_offset + 1 ] == '\\'){
-                    return clickNewPage( out_text );
-                }
-                else{
-                    out_text[1] = script_h.getStringBuffer()[ string_buffer_offset + 1 ];
-                    if (sentence_font.getRemainingLine() <= clickstr_line)
-                        return clickNewPage( out_text );
-                    else
-                        return clickWait( out_text );
-                }
-            }
-            else{
-                clickstr_state = CLICK_NONE;
-            }
+        }
+        else{
+            clickstr_state = CLICK_NONE;
         }
         
         bool flush_flag = true;
         if ( skip_mode || ctrl_pressed_status )
             flush_flag = false;
         if ( script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
-             script_h.getStringBuffer()[ string_buffer_offset + 1 ] != 0x0a &&
              !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR)){
             out_text[1] = script_h.getStringBuffer()[ string_buffer_offset + 1 ];
             drawDoubleChars( out_text, &sentence_font, flush_flag, true, accumulation_surface, &text_info );
@@ -976,24 +935,23 @@ int ONScripterLabel::processText()
             num_chars_in_sentence++;
         }
         
-        if ( skip_mode || ctrl_pressed_status ){
-            if ( script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
-                 !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR))
-                string_buffer_offset++;
-            string_buffer_offset++;
-            return RET_CONTINUE | RET_NOREAD;
-        }
-        else{
-            event_mode = WAIT_SLEEP_MODE | WAIT_INPUT_MODE;
+        if (!skip_mode && !ctrl_pressed_status){
+            event_mode = WAIT_TIMER_MODE | WAIT_INPUT_MODE;
             if ( sentence_font.wait_time == -1 )
-                advancePhase( default_text_speed[text_speed_no] );
+                waitEvent( default_text_speed[text_speed_no] );
             else
-                advancePhase( sentence_font.wait_time );
-            return RET_WAIT | RET_NOREAD;
+                waitEvent( sentence_font.wait_time );
         }
+
+        if ( script_h.getStringBuffer()[ string_buffer_offset + 1 ] &&
+             !(script_h.getEndStatus() & ScriptHandler::END_1BYTE_CHAR))
+            string_buffer_offset++;
+        string_buffer_offset++;
+
+        return true;
     }
 
-    return RET_NOMATCH;
+    return false;
 }
 
 

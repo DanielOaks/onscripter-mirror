@@ -19,9 +19,9 @@
 了承下さい。<br>
 
 Since: Feb. 6, 2002<br>
-Last updated: Mar. 31, 2009 [ソース更新]<br>
+Last updated: Aug. 22, 2009 [ソース更新]<br>
 <!--Last updated: Feb. 14, 2006 [バイナリパッケージ追加]<br>-->
-<!--Last updated: Aug. 23, 2008 [Experimental ソース更新]<br>-->
+<!--Last updated: Jul. 12, 2009 [Experimental ソース更新]<br>-->
 <a href="http://ogapee.at.infoseek.co.jp/onscripter.html">メインサイト
 </a>、<A HREF="http://www.angelfire.com/space/ogapee/onscripter.html">
 ミラーサイト</a><br>
@@ -100,9 +100,9 @@ HREF="http://abe.nwr.jp/onscripter/">ONScripter のスゝメ</a>]を参照し
 <h3><a name="package-source">ソースパッケージ</a></h3>
 <div class="sub-content">
 <ul>
-  <li> <a href="onscripter-20090331.tar.gz">onscripter-20090331.tar.gz</a>
-  <li> <a href="onscripter-20090329.tar.gz">onscripter-20090329.tar.gz</a>(１つ前のバージョン)
-<!--  <li> <a href="onscripter-exp-20060812.tar.gz">onscripter-exp-20060812.tar.gz</a>(実験版, ２種類目の画像バッファ生成効率アップ)-->
+  <li> <a href="onscripter-20090822.tar.gz">onscripter-20090822.tar.gz</a>
+  <li> <a href="onscripter-20090331.tar.gz">onscripter-20090331.tar.gz</a>(１つ前のバージョン)
+  <li> <a href="onscripter-exp-20090712.tar.gz">onscripter-exp-20090712.tar.gz</a>(実験版, バグ修正)
 </ul>
 </div> <!-- sub-content -->
 
@@ -172,7 +172,7 @@ href="http://ponytail.jpn.org/kagemai/html/guest.cgi?project=ONScripter&amp;acti
 <h3><a name="feature-comparison">NScripter と比較した特徴</a></h3>
 <div class="sub-content">
 <ol>
-  <li> 現時点(2009/03/23)で最新の NScripter と互換性のあるセーブファイルを入出力することもできます。詳しくは<a href="#save">異なるプラットフォーム上で同時に遊ぶ方法</a>を参照してください。<br>
+  <li> 現時点(2009/05/17)で最新の NScripter と互換性のあるセーブファイルを入出力することもできます。詳しくは<a href="#save">異なるプラットフォーム上で同時に遊ぶ方法</a>を参照してください。<br>
   <li> 全ての操作をキーボードから行えます。もちろんマウスも使えますが、使う必要はありません。
   <li> CD Audio の演奏に対応していますが、これを MP3 ファイルの演奏に振り替える機能もあります。
   <li> マルチプラットフォームに対応しています。Windows, Linux, Mac OS X, Mac OS 9, <a href="zaurus/index.html">Zaurus(SL-5500,SL-A300,SL-B500,SL-C700)</a>, FreeBSD, Solaris(on SPARC), Tru64 UNIX, PSP, OS/2Warp, iPod, iPhone, PocketPC, Playstation3, Wii, Android, GP2X, Dreamcast での動作が確認されていますが、下記の libjpeg, bzip2, SDL 及び SMPEG が動く環境ならどこでも同じソースをコンパイルするだけで動くはずです。<br>
@@ -203,17 +203,17 @@ href="http://ponytail.jpn.org/kagemai/html/guest.cgi?project=ONScripter&amp;acti
 <h4>必須</h4>
 <dl>
   <dt> ・C++ 処理系
-  <dd> g++ 4.1.2 (Linux)
+  <dd> g++ 4.3.2 (Linux)
   <dd> Visual Studio 2008 C++ (Windows)
   <dt> ・Unicode で指定された日本語 TTF フォント(ファイル名は default.ttf に)
   <dt> ・<a href="http://www.ijg.org/">Independent JPEG Group</a>
   <dd> libjpeg-6b
   <dt> ・<a href="http://sources.redhat.com/bzip2/">The bzip2 and libbzip2 official home page</a>
-  <dd> bzip2-1.0.3
+  <dd> bzip2-1.0.5
   <dt> ・<a href="http://www.libsdl.org">SDL (Simple Direct Layer)</a>
-  <dd> SDL-1.2.11, SDL_image-1.2.4, SDL_mixer-1.2.6, SDL_ttf-2.0.6, SMPEG-0.4.5
+  <dd> SDL-1.2.13, SDL_image-1.2.6, SDL_mixer-1.2.8, SDL_ttf-2.0.9, SMPEG-0.4.5
   <dt> ・<a href="http://www.freetype.org/"> FreeType </a>
-  <dd> FreeType 2.2.1
+  <dd> FreeType 2.3.7
 </dl>
 
 <h4>推奨</h4>
@@ -230,7 +230,7 @@ href="http://ponytail.jpn.org/kagemai/html/guest.cgi?project=ONScripter&amp;acti
   <dd> これは必要ではありませんが、Zaurus で MP3 を聞きたい方はほぼ必須。
   <dd> コンパイル時に MP3_MAD を定義することで、SMPEG に差し換えて使用されます。
   <dt> ・<a href="http://avifile.sourceforge.net/">avifile</a>
-  <dd> avifile-0.7-0.7.38
+  <dd> avifile-0.7-0.7.47
   <dd> これは必要ではありませんが、avi コマンドを使ってムービーを再生したい場合には入れてください。Linux 上で動作確認しております。
   <dd> コンパイル時に USE_AVIFILE を定義し、AVIWrapper.o をリンクすることで使用可能になります。
   <dt> ・<a href="http://www.meadowy.org/meadow/dists/snapshot/old/iconv-1.8.win32.zip">iconv-1.8.win32.zip</a>
@@ -275,6 +275,7 @@ href="http://ponytail.jpn.org/kagemai/html/guest.cgi?project=ONScripter&amp;acti
 <p>現在把握しており直す予定のバグ・未実装機能。先頭の文字は優先度。</p>
 
 <OL>
+  <li> (<FONT color="#ff0000">高</FONT>)Lua 対応
   <li> (<FONT color="#ff8800">中</FONT>)右クリックからの windowerase を実行する時に windoweffect の効果を反映させる。
   <li> (<FONT color="#ff8800">中</FONT>)bgcopy で取得した画像をセーブ時にファイルに保存するようにする。
   <li> (<FONT color="#ff8800">中</FONT>)文字の影が既に描画されている文字にかぶった場合に対処する。
@@ -442,7 +443,7 @@ sav というディレクトリがある場合には、ヘッダ無しのセーブファイルを sav
 
 <h4>注意点</h4>
 <ul>
-  <li>NScripter は、現時点(2009/03/23)で配布されている最新の nscr.exe を使用してください。古いものとは、セーブファイルの互換性がありません。
+  <li>NScripter は、現時点(2009/05/17)で配布されている最新の nscr.exe を使用してください。古いものとは、セーブファイルの互換性がありません。
   <li>NScripter と ONScripter のデータ互換性は保証しませんが、私が試した限りは問題は生じておりません。
   <li>過去のほぼ全ての NScripter 用のゲームは、上記の最新の nscr.exe で問題なく遊ぶことができます。したがって、<FONT color="#ff0000">Windows 以外で同時に ONScripter を使用したい方は、Windows 上では最初から上記の nscr.exe に差し換えて使ってください。</FONT>ゲームを進めてから差し換えると、古い形式のセーブデータを読むことができずエラーになることがあります。 一部のゲームでは nscr.exe を差し換えるとゲームの実行に支障が出るため、ONScripter で動作する場合には、Windows 環境では ONScripter の最新の Windows バイナリをご使用下さい。
   <li>NScripterと併用する場合は、ONScripter 環境のアーカイブのある場所にあらかじめ sav というディレクトリを作成しておいてください。
@@ -787,7 +788,7 @@ return
 <table>
 <tr><th>値</th><th>説明</th><th>例</th></tr>
 <tr><td>IDLE_EVENT_MODE</td><td>待ち状態ではない</td></tr>
-<tr><td>EFFECT_EVENT_MODE</td><td>画面効果実行中</td><td>print, bg</td></tr>
+<tr><td><s>EFFECT_EVENT_MODE</s></td><td><s>画面効果実行中</s></td><td><s>print, bg</s></td></tr>
 <tr><td>WAIT_BUTTON_MODE</td><td>ButtonLink(画像)を使用した選択待ち</td><td>btnwait, select, 右クリックメニュー</td></tr>
 <tr><td>WAIT_INPUT_MODE</td><td>クリックで飛ばせる待ち</td><td>delay, click, @, \</td></tr>
 <tr><td>WAIT_SLEEP_MODE</td><td>クリックで飛ばせない待ち</td><td>テキスト文字描画</td></tr>
@@ -800,6 +801,7 @@ return
 <tr><td>WAIT_TEXTBTN_MODE</td><td>textbtnwait での待ち</td><td>textbtnwait 使用時のみ</td></tr>
 <tr><td>WAIT_VOICE_MODE</td><td>ボイスの発声終了を待つ</td><td>automode, btntime2 使用時のみ</td></tr>
 <tr><td>WAIT_TEXT_MODE</td><td>テキスト終端での待ち</td><td>@, \, select</td></tr>
+<tr><td>WAIT_RCLICK_MODE</td><td>右クリック待ち</td><td>lrclick</td></tr>
 </table>
 
 <h4>レイヤ描画順</h4>
