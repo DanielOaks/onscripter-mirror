@@ -236,23 +236,39 @@ int AnimationInfo::doClipping( SDL_Rect *dst, SDL_Rect *clip, SDL_Rect *clipped 
 
 #if defined(BPP16)
 #define BLEND_PIXEL(){\
-    mask2 = (*alphap++ * alpha) >> 11;\
-    Uint32 s1 = (*src_buffer | *src_buffer << 16) & 0x07e0f81f;\
-    Uint32 d1 = (*dst_buffer | *dst_buffer << 16) & 0x07e0f81f;\
-    mask1 = (d1 + ((s1-d1) * mask2 >> 5)) & 0x07e0f81f;\
-    *dst_buffer = mask1 | mask1 >> 16;\
+    if ((*alphap == 255) && (alpha == 256)){\
+        *dst_buffer = *src_buffer;\
+    }\
+    else if (*alphap != 0){\
+        mask2 = (*alphap * alpha) >> 11;\
+        Uint32 s1 = (*src_buffer | *src_buffer << 16) & 0x07e0f81f;\
+        Uint32 d1 = (*dst_buffer | *dst_buffer << 16) & 0x07e0f81f;\
+        Uint32 mask1 = (d1 + ((s1-d1) * mask2 >> 5)) & 0x07e0f81f;\
+        *dst_buffer = mask1 | mask1 >> 16;\
+    }\
+    alphap++;\
 }
 #else
 #define BLEND_PIXEL(){\
-    mask2 = (*alphap * alpha) >> 8;\
-    mask1 = mask2 ^ 0xff;\
-    Uint32 mask_rb = (((*dst_buffer & 0xff00ff) * mask1 +\
-                       (*src_buffer & 0xff00ff) * mask2) >> 8) & 0xff00ff;\
-    Uint32 mask_g = (((*dst_buffer & 0x00ff00) * mask1 +\
-                      (*src_buffer & 0x00ff00) * mask2) >> 8) & 0x00ff00;\
-    *dst_buffer = mask_rb | mask_g;\
+    if ((*alphap == 255) && (alpha == 256)){\
+        *dst_buffer = *src_buffer;\
+    }\
+    else if (*alphap != 0){\
+        mask2 = (*alphap * alpha) >> 8;\
+        Uint32 temp = *dst_buffer & 0xff00ff;\
+        Uint32 mask_rb = (((((*src_buffer & 0xff00ff) - temp ) * mask2 ) >> 8 ) + temp ) & 0xff00ff;\
+        temp = *dst_buffer & 0x00ff00;\
+        Uint32 mask_g  = (((((*src_buffer & 0x00ff00) - temp ) * mask2 ) >> 8 ) + temp ) & 0x00ff00;\
+        *dst_buffer = mask_rb | mask_g;\
+    }                        \
     alphap += 4;\
 }
+// Originally, the above looks like this.
+//      mask1 = mask2 ^ 0xff;
+//      Uint32 mask_rb = (((*dst_buffer & 0xff00ff) * mask1 +
+//                         (*src_buffer & 0xff00ff) * mask2) >> 8) & 0xff00ff;
+//      Uint32 mask_g  = (((*dst_buffer & 0x00ff00) * mask1 +
+//                         (*src_buffer & 0x00ff00) * mask2) >> 8) & 0x00ff00;
 #endif
 
 void AnimationInfo::blendOnSurface( SDL_Surface *dst_surface, int dst_x, int dst_y,
@@ -285,10 +301,10 @@ void AnimationInfo::blendOnSurface( SDL_Surface *dst_surface, int dst_x, int dst
 #endif
 #endif
 
-    Uint32 mask2, mask1;
+    Uint32 mask2;
     
     for (int i=0 ; i<dst_rect.h ; i++){
-        for (int j=0 ; j<dst_rect.w ; j++, src_buffer++, dst_buffer++){
+        for (int j=dst_rect.w ; j!=0 ; j--, src_buffer++, dst_buffer++){
             BLEND_PIXEL();
         }
         src_buffer += total_width - dst_rect.w;
@@ -327,10 +343,13 @@ void AnimationInfo::blendOnSurface2( SDL_Surface *dst_surface, int dst_x, int ds
     if (min_xy[1] >= clip.y+clip.h) return;
     if (min_xy[1] < clip.y) min_xy[1] = clip.y;
 
+    if (min_xy[1] < 0)               min_xy[1] = 0;
+    if (max_xy[1] >= dst_surface->h) max_xy[1] = dst_surface->h-1;
+
     SDL_LockSurface( dst_surface );
     SDL_LockSurface( image_surface );
     
-    Uint32 mask2, mask1;
+    Uint32 mask2;
     
 #if defined(BPP16)
     int total_width = image_surface->pitch / 2;
@@ -351,6 +370,9 @@ void AnimationInfo::blendOnSurface2( SDL_Surface *dst_surface, int dst_x, int ds
                 if (raster_max < x) raster_max = x;
             }
         }
+
+        if (raster_min < 0)               raster_min = 0;
+        if (raster_max >= dst_surface->w) raster_max = dst_surface->w-1;
 
         ONSBuf *dst_buffer = (ONSBuf *)dst_surface->pixels + dst_surface->w * y + raster_min;
 
@@ -383,11 +405,43 @@ void AnimationInfo::blendOnSurface2( SDL_Surface *dst_surface, int dst_x, int ds
     SDL_UnlockSurface( dst_surface );
 }
 
+#if defined(BPP16)
+#define BLEND_TEXT_ALPHA()\
+{\
+    Uint32 mask2 = *src_buffer;                                         \
+    if (mask2 != 0){                                                    \
+        *alphap = 0xff ^ ((0xff ^ *alphap)*(0xff ^ mask2) >> 8);        \
+        mask2 = (mask2 << 5) / *alphap;                                 \
+        Uint32 d1   = (*dst_buffer | *dst_buffer << 16) & 0x07e0f81f;   \
+        Uint32 mask = (d1 + ((src_color - d1) * mask2 >> 5)) & 0x07e0f81f; \
+        *dst_buffer = mask | mask >> 16;                                \
+    }                                                                   \
+    alphap++;                                                           \
+}
+#else
+#define BLEND_TEXT_ALPHA()\
+{\
+    Uint32 mask2 = *src_buffer;                                         \
+    if (mask2 != 0){                                                    \
+        Uint32 alpha = *dst_buffer >> 24;                               \
+        Uint32 mask1 = ((0xff ^ mask2)*alpha) >> 8;                     \
+        alpha = 0xff ^ ((0xff ^ alpha)*(0xff ^ mask2) >> 8);            \
+        Uint32 mask_rb =  ((*dst_buffer & 0xff00ff) * mask1 +           \
+                           src_color1 * mask2);                         \
+        mask_rb = ((mask_rb / alpha) & 0x00ff0000) |                    \
+            (((mask_rb & 0xffff) / alpha) & 0xff);                      \
+        Uint32 mask_g  = (((*dst_buffer & 0x00ff00) * mask1 +           \
+                           src_color2 * mask2) / alpha) & 0x00ff00;     \
+        *dst_buffer = mask_rb | mask_g | (alpha << 24);                 \
+    }                                                                   \
+}
+#endif
+
 // used to draw characters on text_surface
 // Alpha = 1 - (1-Da)(1-Sa)
 // Color = (DaSaSc + Da(1-Sa)Dc + Sa(1-Da)Sc)/A
-void AnimationInfo::blendBySurface( SDL_Surface *surface, int dst_x, int dst_y, SDL_Color &color,
-                                    SDL_Rect *clip, bool rotate_flag )
+void AnimationInfo::blendText( SDL_Surface *surface, int dst_x, int dst_y, SDL_Color &color,
+                               SDL_Rect *clip, bool rotate_flag )
 {
     if (image_surface == NULL || surface == NULL) return;
     
@@ -432,59 +486,40 @@ void AnimationInfo::blendBySurface( SDL_Surface *surface, int dst_x, int dst_y, 
     Uint32 src_color1 = color.r << 16 | color.b;
     Uint32 src_color2 = color.g << 8;
 #endif    
+
     ONSBuf *dst_buffer = (ONSBuf *)image_surface->pixels + total_width * dst_rect.y + image_surface->w*current_cell/num_of_cells + dst_rect.x;
-    unsigned char *src_buffer = NULL;
-    if (rotate_flag)
-        src_buffer = (unsigned char*)surface->pixels + surface->pitch*(surface->h - src_rect.x - 1) + src_rect.y;
-    else
-        src_buffer = (unsigned char*)surface->pixels + surface->pitch*src_rect.y + src_rect.x;
 #if defined(BPP16)
     unsigned char *alphap = alpha_buf + image_surface->w * dst_rect.y + image_surface->w*current_cell/num_of_cells + dst_rect.x;
 #endif
 
-    Uint32 mask, mask1, mask2, mask_rb;
-    
-    for (int i=0 ; i<dst_rect.h ; i++){
-        for (int j=0 ; j<dst_rect.w ; j++, dst_buffer++){
-
-            mask2 = *src_buffer;
-
-#if defined(BPP16)
-            Uint32 an_1 = *alphap;
-            *alphap = 0xff ^ ((0xff ^ an_1)*(0xff ^ mask2) >> 8);
-            mask2 = (mask2 << 5) / *alphap;
-            
-            Uint32 d1 = (*dst_buffer | *dst_buffer << 16) & 0x07e0f81f;
-
-            mask_rb = (d1 + ((src_color - d1) * mask2 >> 5)) & 0x07e0f81f;
-            *dst_buffer = mask_rb | mask_rb >> 16;
-            alphap++;
-#else
-            Uint32 an_1 = *dst_buffer >> 24;
-            Uint32 an = 0xff ^ ((0xff ^ an_1)*(0xff ^ mask2) >> 8);
-            mask1 = ((0xff ^ mask2)*an_1)>>8;
-
-            mask_rb =  ((*dst_buffer & 0xff00ff) * mask1 + 
-                        src_color1 * mask2);
-            mask_rb =  (((mask_rb / an) & 0x00ff0000) | 
-                        (((mask_rb & 0xffff) / an) & 0xff));
-            mask = (((*dst_buffer & 0x00ff00) * mask1 +
-                     src_color2 * mask2) / an) & 0x00ff00;
-            *dst_buffer = mask_rb | mask | (an << 24);
-#endif            
-            if (rotate_flag)
-                src_buffer -= surface->pitch;
-            else
+    if (!rotate_flag){
+        unsigned char *src_buffer = (unsigned char*)surface->pixels + surface->pitch*src_rect.y + src_rect.x;
+        for (int i=0 ; i<dst_rect.h ; i++){
+            for (int j=dst_rect.w ; j!=0 ; j--){
+                BLEND_TEXT_ALPHA();
                 src_buffer++;
-        }
-        dst_buffer += total_width - dst_rect.w;
+                dst_buffer++;
+            }
+            dst_buffer += total_width - dst_rect.w;
 #if defined(BPP16)
-        alphap += image_surface->w - dst_rect.w;
+            alphap += image_surface->w - dst_rect.w;
 #endif        
-        if (rotate_flag)
-            src_buffer = (unsigned char*)surface->pixels + surface->pitch*(surface->h - src_rect.x - 1) + src_rect.y + i + 1;
-        else
             src_buffer += surface->pitch  - dst_rect.w;
+        }
+    }
+    else{
+        for (int i=0 ; i<dst_rect.h ; i++){
+            unsigned char *src_buffer = (unsigned char*)surface->pixels + surface->pitch*(surface->h - src_rect.x - 1) + src_rect.y + i;
+            for (int j=dst_rect.w ; j!=0 ; j--){
+                BLEND_TEXT_ALPHA();
+                src_buffer -= surface->pitch;
+                dst_buffer++;
+            }
+            dst_buffer += total_width - dst_rect.w;
+#if defined(BPP16)
+            alphap += image_surface->w - dst_rect.w;
+#endif        
+        }
     }
 
     SDL_UnlockSurface( image_surface );
@@ -633,7 +668,7 @@ void AnimationInfo::fill( Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 #endif
 
     for (int i=0 ; i<image_surface->h ; i++){
-        for (int j=0 ; j<image_surface->w ; j++)
+        for (int j=image_surface->w ; j!=0 ; j--)
             SET_PIXEL(rgb, a);
         buffer_dst += dst_margin;
     }
@@ -687,18 +722,19 @@ void AnimationInfo::setupImage( SDL_Surface *surface, SDL_Surface *surface_m, bo
     if ( trans_mode == TRANS_ALPHA ){
         if (has_alpha){
             for (i=0 ; i<h ; i++){
-                for (j=0 ; j<w ; j++, buffer++)
+                for (j=w ; j!=0 ; j--, buffer++)
                     SET_PIXEL(*buffer, *buffer >> 24);
                 buffer_dst += dst_margin;
             }
         }
         else{
+            int w22 = w2/2;
             for (i=0 ; i<h ; i++){
                 for (c=0 ; c<num_of_cells ; c++){
-                    for (j=0 ; j<w2/2 ; j++, buffer++){
-                        SET_PIXEL(*buffer, (*(buffer+(w2/2)) & 0xff) ^ 0xff);
+                    for (j=w22 ; j!=0 ; j--, buffer++){
+                        SET_PIXEL(*buffer, (*(buffer + w22) & 0xff) ^ 0xff);
                     }
-                    buffer += (w2 - w2/2);
+                    buffer += (w2 - w22);
                 }
                 buffer += surface->w - w2*num_of_cells;
                 buffer_dst += dst_margin;
@@ -708,22 +744,23 @@ void AnimationInfo::setupImage( SDL_Surface *surface, SDL_Surface *surface_m, bo
     else if ( trans_mode == TRANS_MASK ){
         if (surface_m){
             SDL_LockSurface( surface_m );
-            int mw = surface->w;
-            int mh = surface->h;
+            int mw  = surface->w;
+            int mwh = surface->w*surface->h;
 
+            int i2 = 0;
             for (i=0 ; i<h ; i++){
-                Uint32 *buffer_m = (Uint32 *)surface_m->pixels + mw*(i%mh);
+                Uint32 *buffer_m = (Uint32 *)surface_m->pixels + i2;
                 for (c=0 ; c<num_of_cells ; c++){
-                    for (j=0 ; j<w2 ; j++, buffer++){
-                        if (surface_m){
-                            SET_PIXEL(*buffer, (*(buffer_m + j%mw) & 0xff) ^ 0xff);
-                        }
-                        else{
-                            SET_PIXEL(*buffer, 0xff);
-                        }
+                    int j2 = 0;
+                    for (j=w2 ; j!=0 ; j--, buffer++){
+                        SET_PIXEL(*buffer, (*(buffer_m + j2) & 0xff) ^ 0xff);
+                        if (j2 >= mw) j2 = 0;
+                        else          j2++;
                     }
                 }
                 buffer_dst += dst_margin;
+                if (i2 >= mwh) i2 = 0;
+                else           i2 += mw;
             }
             SDL_UnlockSurface( surface_m );
         }
@@ -732,7 +769,7 @@ void AnimationInfo::setupImage( SDL_Surface *surface, SDL_Surface *surface_m, bo
               trans_mode == TRANS_TOPRIGHT ||
               trans_mode == TRANS_DIRECT ){
         for (i=0 ; i<h ; i++){
-            for (j=0 ; j<w ; j++, buffer++){
+            for (j=w ; j!=0 ; j--, buffer++){
                 if ( (*buffer & RGBMASK) == ref_color ){
                     SET_PIXEL(*buffer, 0x00);
                 }
@@ -745,14 +782,14 @@ void AnimationInfo::setupImage( SDL_Surface *surface, SDL_Surface *surface_m, bo
     }
     else if ( trans_mode == TRANS_STRING ){
         for (i=0 ; i<h ; i++){
-            for (j=0 ; j<w ; j++, buffer++)
+            for (j=w ; j!=0 ; j--, buffer++)
                 SET_PIXEL(*buffer, *buffer >> 24);
             buffer_dst += dst_margin;
         }
     }
     else { // TRANS_COPY
         for (i=0 ; i<h ; i++){
-            for (j=0 ; j<w ; j++, buffer++)
+            for (j=w ; j!=0 ; j--, buffer++)
                 SET_PIXEL(*buffer, 0xff);
             buffer_dst += dst_margin;
         }
