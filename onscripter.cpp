@@ -26,26 +26,25 @@
 
 #if defined(PSP)
 #include <pspkernel.h>
-#include <pspdebug.h>
-#include <pspctrl.h>
-#include <pspdisplay.h>
-#include <stdio.h>
-#include <pspmoduleinfo.h>
+#include <psputility.h>
 #include <psppower.h>
+#include <ctype.h>
+
+PSP_HEAP_SIZE_KB(-1);
 
 int psp_power_resume_number = 0;
+ONScripterLabel *g_ons;
 
 int exit_callback(int arg1, int arg2, void *common)
 {
+    g_ons->endCommand();
     sceKernelExitGame();
     return 0;
 }
 
 int power_callback(int unknown, int pwrflags, void *common)
 {
-    if (pwrflags & PSP_POWER_CB_RESUMING)
-        psp_power_resume_number++;
-    
+    if (pwrflags & PSP_POWER_CB_RESUMING) psp_power_resume_number++;
     return 0;
 }
 
@@ -57,16 +56,13 @@ int CallbackThread(SceSize args, void *argp)
     cbid = sceKernelCreateCallback("Power Callback", power_callback, NULL);
     scePowerRegisterCallback(0, cbid);
     sceKernelSleepThreadCB();
-
     return 0;
 }
 
 int SetupCallbacks(void)
 {
-    int thid = 0;
-    thid = sceKernelCreateThread("update_thread", CallbackThread, 0x11, 0xFA0, 0, 0);
-    if (thid >= 0)
-        sceKernelStartThread(thid, 0, 0);
+    int thid = sceKernelCreateThread("update_thread", CallbackThread, 0x11, 0xFA0, 0, 0);
+    if (thid >= 0) sceKernelStartThread(thid, 0, 0);
     return thid;
 }
 #endif
@@ -75,20 +71,20 @@ void optionHelp()
 {
     printf( "Usage: onscripter [option ...]\n" );
     printf( "      --cdaudio\t\tuse CD audio if available\n");
-    printf( "      --cdnumber no\tchoose the CD-ROM drive number\n");
-    printf( "  -f, --font file\tset a TTF font file\n");
-    printf( "      --registry file\tset a registry file\n");
-    printf( "      --dll file\tset a dll file\n");
-    printf( "  -r, --root path\tset the root path to the archives\n");
+    printf( "      --cdnumber no\tspecify CD-ROM drive number\n");
+    printf( "  -f, --font file\tspecify a TTF font file\n");
+    printf( "      --registry file\tspecify a registry file\n");
+    printf( "      --dll file\tspecify a dll file\n");
+    printf( "  -r, --root path\tspecify the root path to the archives\n");
     printf( "      --fullscreen\tstart in fullscreen mode\n");
-    printf( "      --window\t\tstart in window mode\n");
+    printf( "      --window\t\tstart in windowed mode\n");
     printf( "      --force-button-shortcut\tignore useescspc and getenter command\n");
-    printf( "      --enable-wheeldown-advance\tadvance the text on mouse wheeldown event\n");
+    printf( "      --enable-wheeldown-advance\tadvance the text on mouse wheel down\n");
     printf( "      --disable-rescale\tdo not rescale the images in the archives when compiled with -DPDA\n");
-    printf( "      --edit\t\tenable editing the volumes and the variables when 'z' is pressed\n");
-    printf( "      --key-exe file\tset a file (*.EXE) that includes a key table\n");
+    printf( "      --edit\t\tenable online modification of the volume and variables when 'z' is pressed\n");
+    printf( "      --key-exe file\tspecify a file (*.EXE) that includes a key table\n");
     printf( "  -h, --help\t\tshow this help and exit\n");
-    printf( "  -v, --version\t\tshow the version information and exit\n");
+    printf( "  -v, --version\t\tshow the version number and exit\n");
     exit(0);
 }
 
@@ -114,6 +110,7 @@ int main( int argc, char **argv )
 #if defined(PSP)
     ons.disableRescale();
     ons.enableButtonShortCut();
+    g_ons = &ons;
     SetupCallbacks();
 #elif defined(WINCE)
     char currentDir[256];
