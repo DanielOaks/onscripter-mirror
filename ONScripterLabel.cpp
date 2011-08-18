@@ -684,7 +684,7 @@ void ONScripterLabel::reset()
     automode_time = DEFAULT_AUTOMODE_TIME;
     autoclick_time = 0;
     btntime2_flag = false;
-    btntime_value = 0;
+    btntime_value = -1;
     btnwait_time = 0;
     transbtn_flag = 0;
 
@@ -835,13 +835,14 @@ void ONScripterLabel::flushDirect( SDL_Rect &rect, int refresh_mode )
     //printf("flush %d: %d %d %d %d\n", refresh_mode, rect.x, rect.y, rect.w, rect.h );
     
     refreshSurface( accumulation_surface, &rect, refresh_mode );
-    SDL_BlitSurface( accumulation_surface, &rect, screen_surface, &rect );
-    SDL_UpdateRect( screen_surface, rect.x, rect.y, rect.w, rect.h );
+    SDL_Rect dst_rect = rect;
+    SDL_BlitSurface( accumulation_surface, &rect, screen_surface, &dst_rect );
+    SDL_UpdateRect( screen_surface, dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h );
 }
 
 void ONScripterLabel::mouseOverCheck( int x, int y )
 {
-    int c = 0;
+    int c = 0, max_c = 0;
 
     last_mouse_state.x = x;
     last_mouse_state.y = y;
@@ -849,28 +850,37 @@ void ONScripterLabel::mouseOverCheck( int x, int y )
     /* ---------------------------------------- */
     /* Check button */
     int button = 0;
-    ButtonLink *bl = root_button_link.next;
+    ButtonLink *bl = root_button_link.next, *max_bl = NULL;
+    unsigned int max_alpha = 0;
     while( bl ){
         if ( x >= bl->select_rect.x && x < bl->select_rect.x + bl->select_rect.w &&
              y >= bl->select_rect.y && y < bl->select_rect.y + bl->select_rect.h ){
             if (transbtn_flag == false ||
-                x == bl->select_rect.x && y == bl->select_rect.y){ // possibley possibly warped by keyboard shortcut
+                (x == bl->select_rect.x && y == bl->select_rect.y)){ // possibley possibly warped by keyboard shortcut
                 button = bl->no;
                 break;
             }
             else{
+                unsigned char alpha = 0;
                 if ( ((bl->button_type == ButtonLink::SPRITE_BUTTON || 
                        bl->button_type == ButtonLink::EX_SPRITE_BUTTON) &&
-                      sprite_info[ bl->sprite_no ].isTransparent(x, y) == false) ||
+                      max_alpha < (alpha = sprite_info[ bl->sprite_no ].getAlpha(x, y))) ||
                      (bl->button_type == ButtonLink::NORMAL_BUTTON &&
-                      bl->anim[0]->isTransparent(x, y) == false) ){
-                    button = bl->no;
-                    break;
+                      max_alpha < (alpha = bl->anim[0]->getAlpha(x, y))) ){
+                    max_alpha = alpha;
+                    max_bl = bl;
+                    max_c = c;
                 }
             }
         }
         bl = bl->next;
         c++;
+    }
+
+    if (max_bl){
+        bl = max_bl;
+        button = bl->no;
+        c = max_c;
     }
 
     if ( current_over_button != button ){
